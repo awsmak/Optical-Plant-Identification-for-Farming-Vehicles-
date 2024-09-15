@@ -13,70 +13,66 @@ def create_dir(path):
 
 
 # load data
-def load_data(path):
-    train = sorted(glob(os.path.join(path, "*.JPG")))
-    print(f"train: {len(train)}")
-    return train
+def load_data(image_path, annotation_path):
+    images = sorted(glob(os.path.join(image_path, "*.JPG")))  # Adjust extension if needed
+    annotations = sorted(glob(os.path.join(annotation_path, "*.xml")))
+    return images, annotations
 
 
-# data augmentation
-def augment_data(images, save_path, augment=True):
+# Save augmented data
+def save_augmented_data(aug_images, aug_annotations, save_img_dir, save_ann_dir, base_name, index):
+    for i, (img, ann) in enumerate(zip(aug_images, aug_annotations)):
+        img_name = f"{base_name}_{index + i}.png"
+        annotation_name = f"{base_name}_{index + i}.xml"
+        
+        cv2.imwrite(os.path.join(save_img_dir, img_name), img)
+        # Assuming annotations are copied; modify if augmentation changes them
+        with open(os.path.join(save_ann_dir, annotation_name), 'w') as f:
+            f.write(ann)
+
+
+# Data augmentation
+def augment_data(images, annotations, save_img_dir, save_ann_dir, augment=True):
     size = (512, 512)
+    create_dir(save_img_dir)
+    create_dir(save_ann_dir)
 
-    for ind, x in tqdm(enumerate(images), total=len(images)):
-        # Extract the name
-        name = x.split("/")[-1].split(".")[0]
+    for ind, (img_path, ann_path) in tqdm(enumerate(zip(images, annotations)), total=len(images)):
+        base_name = os.path.basename(img_path).split(".")[0]
 
-        # Read image and mask
-        x = cv2.imread(x, cv2.IMREAD_COLOR)
-        print(f"Loaded image {x.shape}: {x.dtype}")
+        # Read image and annotation
+        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+        with open(ann_path, 'r') as f:
+            annotation = f.read()
 
         if augment:
+            # Apply augmentations
+            aug1 = HorizontalFlip(p=1.0)
+            aug_img1 = aug1(image=img)['image']
 
-            aug = HorizontalFlip(p=1.0)
-            augmented = aug(image=x)
-            x1 = augmented['image']
+            aug2 = Rotate(limit=45, p=1.0)
+            aug_img2 = aug2(image=img)['image']
 
-            aug = Rotate(limit=45, p=1.0)
-            augmented = aug(image=x)
-            x2 = augmented['image']
-
-            X = [x, x1, x2]
-
-
+            aug_images = [img, aug_img1, aug_img2]
+            aug_annotations = [annotation] * len(aug_images)  # Assume annotations remain the same for these augmentations
         else:
+            aug_images = [img]
+            aug_annotations = [annotation]
 
-            X = [x]
-
-        # Resizing images and masks
-        index = 0
-        for i in X:
-            i = cv2.resize(i, size)
-
-            tmp_image_name = f"{name}_{index}.png"
-
-            image_path = os.path.join(save_path, tmp_image_name)
-
-            cv2.imwrite(image_path, i)
-            print(f"Saved image {i.shape}: {i.dtype} to {image_path}")
-
-            index += 1
+        # Resize and save augmented images and annotations
+        resized_images = [cv2.resize(aug_img, size) for aug_img in aug_images]
+        save_augmented_data(resized_images, aug_annotations, save_img_dir, save_ann_dir, base_name, ind * len(aug_images))
 
 
 if __name__ == "__main__":
-    """ Seeding """
-
-    np.random.seed(42)
-
     """ Load the data"""
-    data_path = "/home/akash/PycharmProjects/Plant_Detection/dataset_raw/test"
-    val = load_data(data_path)
+    repo_root = os.path.dirname(os.path.abspath(__file__))  # Get repo root dynamically
+    images_path = os.path.join(repo_root, "../data/full_dataset/images")
+    annotations_path = os.path.join(repo_root, "../data/full_dataset/annotations")
+    save_img_dir = os.path.join(repo_root, "../data/augmented_dataset/images")
+    save_ann_dir = os.path.join(repo_root, "../data/augmented_dataset/annotations")
 
-    print(f"train: {len(val)}")
+    images, annotations = load_data(images_path, annotations_path)
 
-    """Create directories to save the augmented data"""
-
-    create_dir("augmented_data/train/")
-
-    # Data augmentation
-    augment_data(val, "augmented_data/test/", augment=False)
+    """ Data augmentation"""
+    augment_data(images, annotations, save_img_dir, save_ann_dir, augment=True)
