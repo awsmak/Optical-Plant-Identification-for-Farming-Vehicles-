@@ -9,9 +9,12 @@ run_command() {
     fi
 }
 
-# Clone Darknet repository
-echo "Cloning Darknet repository..."
-run_command "git clone https://github.com/AlexeyAB/darknet.git"
+# Initialize and update the Darknet submodule
+echo "Initializing and updating Darknet submodule..."
+run_command "git submodule init"
+run_command "git submodule update"
+
+# Change to Darknet directory
 cd darknet
 
 # Modify Makefile
