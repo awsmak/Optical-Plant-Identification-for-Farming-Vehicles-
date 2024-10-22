@@ -8,6 +8,11 @@ __pycache__/
 /env/
 /data/augmented_dataset/
 /data/raw_data
+/data/processed_data
+/data/VOC
+/data/VOC.zip
+/data/processed_data_old
+
 
 
 
